@@ -6,6 +6,7 @@ import { setupGuardrailsHooks } from "./hooks";
  *
  * Security hooks to prevent potentially dangerous operations:
  * - prevent-brew: Blocks Homebrew commands (project uses Nix)
+ * - prevent-pi-spawn: Blocks attempts to spawn another pi instance
  * - protect-env-files: Prevents access to .env files (except .example/.sample/.test)
  * - permission-gate: Prompts for confirmation on dangerous commands
  */
