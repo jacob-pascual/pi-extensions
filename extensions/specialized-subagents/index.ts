@@ -4,6 +4,7 @@ import { createJesterTool, JESTER_GUIDANCE } from "./subagents/jester";
 import { createLookoutTool, LOOKOUT_GUIDANCE } from "./subagents/lookout";
 import { createOracleTool, ORACLE_GUIDANCE } from "./subagents/oracle";
 import { createReviewerTool, REVIEWER_GUIDANCE } from "./subagents/reviewer";
+import { createRushTool, RUSH_GUIDANCE } from "./subagents/rush";
 import { createScoutTool, SCOUT_GUIDANCE } from "./subagents/scout";
 
 /**
@@ -14,6 +15,7 @@ import { createScoutTool, SCOUT_GUIDANCE } from "./subagents/scout";
  * - lookout: Local codebase search by functionality/concept (uses osgrep)
  * - oracle: Expert AI advisor for complex reasoning and planning
  * - reviewer: Code review feedback on diffs
+ * - rush: Fast, cheap agent for small tasks (uses Haiku 4.5)
  * - jester: No-tools, training-data-only answers (high variance)
  *
  * Also provides standalone tools:
@@ -45,6 +47,7 @@ const SUBAGENT_GUIDANCES = [
   LOOKOUT_GUIDANCE,
   ORACLE_GUIDANCE,
   REVIEWER_GUIDANCE,
+  RUSH_GUIDANCE,
   JESTER_GUIDANCE,
 ];
 
@@ -63,6 +66,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool(createLookoutTool());
   pi.registerTool(createOracleTool());
   pi.registerTool(createReviewerTool());
+  pi.registerTool(createRushTool());
   pi.registerTool(createJesterTool());
 
   // Register standalone tools
