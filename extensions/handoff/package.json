@@ -1,0 +1,7 @@
+{
+  "name": "@aliou/pi-handoff",
+  "private": true,
+  "pi": {
+    "extensions": ["./index.ts"]
+  }
+}
