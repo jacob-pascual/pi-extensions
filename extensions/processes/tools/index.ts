@@ -53,6 +53,12 @@ const ProcessesParams = Type.Object({
         "Get a turn to react when process is killed by external signal (default: false). Note: killing via tool never triggers a turn.",
     }),
   ),
+  wakeDuration: Type.Optional(
+    Type.Number({
+      description:
+        "Duration in seconds after which you are woken up to check on a still-running process. Use for long-running processes where you want to check progress without waiting for completion.",
+    }),
+  ),
 });
 
 type ProcessesParamsType = Static<typeof ProcessesParams>;
@@ -66,6 +72,7 @@ export function setupProcessesTools(pi: ExtensionAPI, manager: ProcessManager) {
   - alertOnSuccess (default: false): Get a turn to react when process completes successfully
   - alertOnFailure (default: true): Get a turn to react when process crashes/fails
   - alertOnKill (default: false): Get a turn to react if killed by external signal (killing via tool never triggers a turn)
+  - wakeDuration (seconds): Get woken up after this many seconds to check on a still-running process. Use for long builds, deploys, or other long-running tasks where you want to check progress periodically instead of waiting for completion.
 - list: Show all managed processes with their IDs and names
 - output: Get recent stdout/stderr (requires 'id' - can be proc_N or name match)
 - logs: Get log file paths to inspect with read tool (requires 'id')

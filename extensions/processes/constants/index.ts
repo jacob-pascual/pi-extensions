@@ -8,4 +8,8 @@ export type {
   StartOptions,
 } from "./types";
 
-export { LIVE_STATUSES, MESSAGE_TYPE_PROCESS_UPDATE } from "./types";
+export {
+  LIVE_STATUSES,
+  MESSAGE_TYPE_PROCESS_UPDATE,
+  MESSAGE_TYPE_PROCESS_WAKE,
+} from "./types";

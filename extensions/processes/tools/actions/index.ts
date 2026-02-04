@@ -16,6 +16,7 @@ interface ActionParams {
   alertOnSuccess?: boolean;
   alertOnFailure?: boolean;
   alertOnKill?: boolean;
+  wakeDuration?: number;
 }
 
 export async function executeAction(

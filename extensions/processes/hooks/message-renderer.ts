@@ -4,7 +4,11 @@ import type {
   Theme,
 } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
-import { MESSAGE_TYPE_PROCESS_UPDATE } from "../constants";
+import {
+  MESSAGE_TYPE_PROCESS_UPDATE,
+  MESSAGE_TYPE_PROCESS_WAKE,
+} from "../constants";
+import type { ProcessWakeDetails } from "./process-wake";
 
 interface ProcessUpdateDetails {
   processId: string;
@@ -75,6 +79,35 @@ export function setupMessageRenderer(pi: ExtensionAPI) {
         theme.fg("muted", ` (${details.processId})`) +
         " " +
         theme.fg(color, statusText) +
+        theme.fg("muted", ` ${details.runtime}`);
+
+      return new Text(text, 0, 0);
+    },
+  );
+
+  pi.registerMessageRenderer<ProcessWakeDetails>(
+    MESSAGE_TYPE_PROCESS_WAKE,
+    (
+      message: {
+        customType: string;
+        content: string | Array<{ type: string; text?: string }>;
+        details?: ProcessWakeDetails;
+      },
+      _options: MessageRenderOptions,
+      theme: Theme,
+    ) => {
+      const details = message.details;
+
+      if (!details) {
+        return new Text(getContentText(message.content), 0, 0);
+      }
+
+      const text =
+        theme.fg("warning", "\u23F0 ") +
+        theme.fg("accent", `"${details.processName}"`) +
+        theme.fg("muted", ` (${details.processId})`) +
+        " " +
+        theme.fg("warning", "still running") +
         theme.fg("muted", ` ${details.runtime}`);
 
       return new Text(text, 0, 0);

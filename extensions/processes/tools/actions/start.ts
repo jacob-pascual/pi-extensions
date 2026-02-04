@@ -8,6 +8,7 @@ interface StartParams {
   alertOnSuccess?: boolean;
   alertOnFailure?: boolean;
   alertOnKill?: boolean;
+  wakeDuration?: number;
 }
 
 export function executeStart(
@@ -40,6 +41,7 @@ export function executeStart(
     alertOnSuccess: params.alertOnSuccess,
     alertOnFailure: params.alertOnFailure,
     alertOnKill: params.alertOnKill,
+    wakeDuration: params.wakeDuration,
   });
 
   const message = `Started "${proc.name}" (${proc.id}, PID: ${proc.pid})\nLogs: ${proc.stdoutFile}`;

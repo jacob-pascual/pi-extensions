@@ -3,11 +3,13 @@ import type { ProcessManager } from "../manager";
 import { setupCleanupHook } from "./cleanup";
 import { setupMessageRenderer } from "./message-renderer";
 import { setupProcessEndHook } from "./process-end";
+import { setupProcessWakeHook } from "./process-wake";
 import { setupProcessWidget } from "./widget";
 
 export function setupProcessesHooks(pi: ExtensionAPI, manager: ProcessManager) {
   setupCleanupHook(pi, manager);
   setupProcessEndHook(pi, manager);
+  setupProcessWakeHook(pi, manager);
 
   // Set up widget AFTER process-end so it chains onto the existing callback
   setupProcessWidget(pi, manager);

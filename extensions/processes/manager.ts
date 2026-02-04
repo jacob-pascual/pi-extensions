@@ -23,6 +23,7 @@ import { isProcessGroupAlive, killProcessGroup } from "./utils";
 interface ManagedProcess extends ProcessInfo {
   process: ChildProcess;
   lastSignalSent: NodeJS.Signals | null;
+  wakeTimer: ReturnType<typeof setTimeout> | null;
 }
 
 export class ProcessManager {
@@ -58,6 +59,7 @@ export class ProcessManager {
     });
 
     if (next === "exited" || next === "killed") {
+      this.clearWakeTimer(managed);
       this.emit({ type: "process_ended", info: this.toProcessInfo(managed) });
     }
 
@@ -151,8 +153,10 @@ export class ProcessManager {
       alertOnSuccess: options?.alertOnSuccess ?? false,
       alertOnFailure: options?.alertOnFailure ?? true,
       alertOnKill: options?.alertOnKill ?? false,
+      wakeDuration: options?.wakeDuration ?? null,
       process: child,
       lastSignalSent: null,
+      wakeTimer: null,
     };
 
     this.processes.set(id, managed);
@@ -217,6 +221,7 @@ export class ProcessManager {
 
     this.emit({ type: "process_started", info: this.toProcessInfo(managed) });
     this.ensureWatcherRunning();
+    this.scheduleWakeTimer(managed);
 
     return this.toProcessInfo(managed);
   }
@@ -309,6 +314,7 @@ export class ProcessManager {
           alertOnSuccess: false,
           alertOnFailure: true,
           alertOnKill: false,
+          wakeDuration: null,
         },
         reason: "not_found",
       };
@@ -371,6 +377,8 @@ export class ProcessManager {
         continue;
       }
 
+      this.clearWakeTimer(managed);
+
       try {
         rmSync(managed.stdoutFile, { force: true });
         rmSync(managed.stderrFile, { force: true });
@@ -412,6 +420,7 @@ export class ProcessManager {
     this.stopWatcher();
 
     for (const p of this.processes.values()) {
+      this.clearWakeTimer(p);
       if (!LIVE_STATUSES.has(p.status)) continue;
       try {
         killProcessGroup(p.pid, "SIGKILL");
@@ -438,6 +447,23 @@ export class ProcessManager {
       };
     } catch {
       return { stdout: 0, stderr: 0 };
+    }
+  }
+
+  private scheduleWakeTimer(managed: ManagedProcess): void {
+    if (!managed.wakeDuration || managed.wakeDuration <= 0) return;
+
+    managed.wakeTimer = setTimeout(() => {
+      managed.wakeTimer = null;
+      if (!LIVE_STATUSES.has(managed.status)) return;
+      this.emit({ type: "process_wake", info: this.toProcessInfo(managed) });
+    }, managed.wakeDuration * 1000);
+  }
+
+  private clearWakeTimer(managed: ManagedProcess): void {
+    if (managed.wakeTimer) {
+      clearTimeout(managed.wakeTimer);
+      managed.wakeTimer = null;
     }
   }
 
@@ -471,6 +497,7 @@ export class ProcessManager {
       alertOnSuccess: managed.alertOnSuccess,
       alertOnFailure: managed.alertOnFailure,
       alertOnKill: managed.alertOnKill,
+      wakeDuration: managed.wakeDuration,
     };
   }
 }

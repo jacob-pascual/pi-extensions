@@ -1,5 +1,6 @@
 // Custom message type for process update notifications
 export const MESSAGE_TYPE_PROCESS_UPDATE = "ad-process:update";
+export const MESSAGE_TYPE_PROCESS_WAKE = "ad-process:wake";
 
 export type ProcessStatus =
   | "running"
@@ -30,12 +31,14 @@ export interface ProcessInfo {
   alertOnSuccess: boolean;
   alertOnFailure: boolean;
   alertOnKill: boolean;
+  wakeDuration: number | null; // seconds; when set, agent is notified after this duration if the process is still running
 }
 
 export type ManagerEvent =
   | { type: "process_started"; info: ProcessInfo }
   | { type: "process_status_changed"; info: ProcessInfo; prev: ProcessStatus }
   | { type: "process_ended"; info: ProcessInfo }
+  | { type: "process_wake"; info: ProcessInfo }
   | { type: "processes_changed" };
 
 export type KillResult =
@@ -46,6 +49,7 @@ export interface StartOptions {
   alertOnSuccess?: boolean;
   alertOnFailure?: boolean;
   alertOnKill?: boolean;
+  wakeDuration?: number; // seconds; agent is notified after this duration if the process is still running
 }
 
 export interface ProcessesDetails {
