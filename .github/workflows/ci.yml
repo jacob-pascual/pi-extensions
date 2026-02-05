@@ -22,3 +22,6 @@ jobs:
 
       - name: Typecheck
         run: pnpm typecheck
+
+      - name: Test extension loading
+        run: pnpm test:extensions

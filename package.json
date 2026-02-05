@@ -23,6 +23,7 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "typecheck": "tsc --build",
+    "test:extensions": "tsx scripts/test-extension-loading.ts",
     "changeset": "changeset",
     "version": "changeset version",
     "release": "pnpm changeset publish"
