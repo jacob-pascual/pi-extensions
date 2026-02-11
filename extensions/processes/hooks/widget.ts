@@ -2,127 +2,144 @@ import type {
   ExtensionAPI,
   ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
-import { visibleWidth } from "@mariozechner/pi-tui";
 import { configLoader } from "../config";
-import type { ProcessInfo } from "../constants";
+import { LIVE_STATUSES } from "../constants";
 import type { ProcessManager } from "../manager";
 
 const WIDGET_ID = "processes-status";
 
-function formatProcessStatus(
-  proc: ProcessInfo,
-  theme: ExtensionContext["ui"]["theme"],
-): string {
-  const name =
-    proc.name.length > 20 ? `${proc.name.slice(0, 17)}...` : proc.name;
-
-  switch (proc.status) {
-    case "running":
-      return `${theme.fg("accent", name)} ${theme.fg("dim", "running")}`;
-    case "terminating":
-      return `${theme.fg("warning", name)} ${theme.fg("dim", "terminating")}`;
-    case "terminate_timeout":
-      return `${theme.fg("error", name)} ${theme.fg("error", "terminate_timeout")}`;
-    case "killed":
-      return `${theme.fg("warning", name)} ${theme.fg("dim", "killed")}`;
-    case "exited":
-      if (proc.success) {
-        return `${theme.fg("dim", name)} ${theme.fg("success", "done")}`;
-      }
-      return `${theme.fg("error", name)} ${theme.fg("error", `exit(${proc.exitCode ?? "?"})`)}`;
-    default:
-      return `${theme.fg("dim", name)} ${theme.fg("dim", proc.status)}`;
-  }
-}
-
-function renderWidget(
-  processes: ProcessInfo[],
-  theme: ExtensionContext["ui"]["theme"],
-  maxWidth?: number,
-): string[] {
-  if (processes.length === 0) {
-    return [];
-  }
-
-  const aliveish = processes.filter(
-    (p) =>
-      p.status === "running" ||
-      p.status === "terminating" ||
-      p.status === "terminate_timeout",
-  );
-  const finished = processes.filter(
-    (p) =>
-      p.status !== "running" &&
-      p.status !== "terminating" &&
-      p.status !== "terminate_timeout",
-  );
-
-  const allProcs: ProcessInfo[] = [
-    ...aliveish,
-    ...finished.sort((a, b) => (b.endTime ?? 0) - (a.endTime ?? 0)),
-  ];
-
-  const prefix = theme.fg("dim", "processes: ");
-  const prefixLen = visibleWidth(prefix);
-  const separator = theme.fg("dim", " | ");
-  const separatorLen = visibleWidth(separator);
-  const effectiveMax = maxWidth ?? 200;
-
-  const parts: string[] = [];
-  let currentLen = prefixLen;
-  let includedCount = 0;
-
-  for (const proc of allProcs) {
-    const formatted = formatProcessStatus(proc, theme);
-    const formattedLen = visibleWidth(formatted);
-
-    // Check if adding this part would exceed the width
-    const needed =
-      includedCount > 0 ? separatorLen + formattedLen : formattedLen;
-
-    if (currentLen + needed > effectiveMax && includedCount > 0) {
-      // Show how many are hidden
-      const remaining = allProcs.length - includedCount;
-      if (remaining > 0) {
-        parts.push(theme.fg("dim", `+${remaining} more`));
-      }
-      break;
-    }
-
-    parts.push(formatted);
-    currentLen += needed;
-    includedCount++;
-  }
-
-  if (parts.length === 0) {
-    return [];
-  }
-
-  return [prefix + parts.join(separator)];
-}
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const SPINNER_INTERVAL_MS = 80;
 
 export function setupProcessWidget(pi: ExtensionAPI, manager: ProcessManager) {
   let latestContext: ExtensionContext | null = null;
+  let spinnerFrame = 0;
+  let spinnerInterval: ReturnType<typeof setInterval> | null = null;
 
   function updateWidget() {
     if (!latestContext?.hasUI) return;
 
     if (!configLoader.getConfig().widget.showStatusWidget) {
       latestContext.ui.setWidget(WIDGET_ID, undefined);
+      stopSpinner();
       return;
     }
 
     const processes = manager.list();
-    const maxWidth = process.stdout.columns || 120;
-    const lines = renderWidget(processes, latestContext.ui.theme, maxWidth);
-
-    if (lines.length === 0) {
+    if (processes.length === 0) {
       latestContext.ui.setWidget(WIDGET_ID, undefined);
-    } else {
-      latestContext.ui.setWidget(WIDGET_ID, lines, {
-        placement: "belowEditor",
-      });
+      stopSpinner();
+      return;
     }
+
+    const now = Date.now();
+    const { autoHide } = configLoader.getConfig();
+    const doneExpiryMs = autoHide.enabled ? autoHide.delayMs : 0;
+
+    let active = 0;
+    let failed = 0;
+    let done = 0;
+
+    for (const p of processes) {
+      if (LIVE_STATUSES.has(p.status)) {
+        active++;
+      } else if (p.success) {
+        // Hide "done" after the expiry window (when autoHide is enabled)
+        if (doneExpiryMs > 0 && p.endTime && now - p.endTime >= doneExpiryMs) {
+          continue;
+        }
+        done++;
+      } else {
+        failed++;
+      }
+    }
+
+    if (active === 0 && failed === 0 && done === 0) {
+      latestContext.ui.setWidget(WIDGET_ID, undefined);
+      stopSpinner();
+      return;
+    }
+
+    const theme = latestContext.ui.theme;
+    const frame = SPINNER_FRAMES[spinnerFrame % SPINNER_FRAMES.length] ?? "⠋";
+    const spinner = active > 0 ? `${theme.fg("accent", frame)} ` : "";
+
+    const parts: string[] = [];
+    if (active > 0) {
+      parts.push(theme.fg("accent", `${active} active`));
+    }
+    if (failed > 0) {
+      parts.push(theme.fg("error", `${failed} failed`));
+    }
+    if (done > 0) {
+      parts.push(theme.fg("success", `${done} done`));
+    }
+
+    const line =
+      spinner +
+      theme.fg("dim", "processes: ") +
+      parts.join(theme.fg("dim", ", "));
+
+    latestContext.ui.setWidget(WIDGET_ID, [line], {
+      placement: "belowEditor",
+    });
+
+    // Run spinner while there are active processes or visible done processes
+    if (active > 0) {
+      ensureSpinner();
+    } else {
+      stopSpinner();
+      // Schedule a re-render when the next "done" process expires
+      scheduleExpiryUpdate(processes, now, doneExpiryMs);
+    }
+  }
+
+  let expiryTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  function scheduleExpiryUpdate(
+    processes: ReturnType<typeof manager.list>,
+    now: number,
+    doneExpiryMs: number,
+  ) {
+    if (expiryTimeout) {
+      clearTimeout(expiryTimeout);
+      expiryTimeout = null;
+    }
+    if (doneExpiryMs <= 0) return;
+
+    // Find the next "done" process that will expire
+    let nextExpiry = Number.POSITIVE_INFINITY;
+    for (const p of processes) {
+      if (p.success && p.endTime) {
+        const expiresAt = p.endTime + doneExpiryMs;
+        if (expiresAt > now && expiresAt < nextExpiry) {
+          nextExpiry = expiresAt;
+        }
+      }
+    }
+
+    if (nextExpiry < Number.POSITIVE_INFINITY) {
+      const delay = nextExpiry - now + 100; // small buffer
+      expiryTimeout = setTimeout(() => {
+        expiryTimeout = null;
+        updateWidget();
+      }, delay);
+    }
+  }
+
+  function ensureSpinner() {
+    if (spinnerInterval) return;
+    spinnerInterval = setInterval(() => {
+      spinnerFrame++;
+      updateWidget();
+    }, SPINNER_INTERVAL_MS);
+  }
+
+  function stopSpinner() {
+    if (!spinnerInterval) return;
+    clearInterval(spinnerInterval);
+    spinnerInterval = null;
+    spinnerFrame = 0;
   }
 
   pi.on("session_start", async (_event, ctx) => {
@@ -133,6 +150,14 @@ export function setupProcessWidget(pi: ExtensionAPI, manager: ProcessManager) {
   pi.on("session_switch", async (_event, ctx) => {
     latestContext = ctx;
     updateWidget();
+  });
+
+  pi.on("session_shutdown", () => {
+    stopSpinner();
+    if (expiryTimeout) {
+      clearTimeout(expiryTimeout);
+      expiryTimeout = null;
+    }
   });
 
   manager.onEvent(() => {

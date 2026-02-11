@@ -27,7 +27,7 @@ export interface ProcessesConfig {
   autoHide?: {
     /** Automatically remove processes from the list after they exit. */
     enabled?: boolean;
-    /** Delay in milliseconds before removing an exited process (default: 3000). */
+    /** Delay in milliseconds before removing an exited process (default: 60000). */
     delayMs?: number;
   };
 }
@@ -63,8 +63,8 @@ const DEFAULT_CONFIG: ResolvedProcessesConfig = {
     showStatusWidget: true,
   },
   autoHide: {
-    enabled: false,
-    delayMs: 3000,
+    enabled: true,
+    delayMs: 60_000,
   },
 };
 
