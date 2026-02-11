@@ -2,6 +2,7 @@ import type {
   ExtensionAPI,
   ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
+import { configLoader } from "../config";
 import { MESSAGE_TYPE_PROCESS_UPDATE, type ProcessInfo } from "../constants";
 import type { ProcessManager } from "../manager";
 import { formatRuntime } from "../utils";
@@ -18,6 +19,7 @@ interface ProcessUpdateDetails {
 
 export function setupProcessEndHook(pi: ExtensionAPI, manager: ProcessManager) {
   let latestContext: ExtensionContext | null = null;
+  const autoHideTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   // Capture context from session events
   pi.on("session_start", async (_event, ctx) => {
@@ -30,6 +32,14 @@ export function setupProcessEndHook(pi: ExtensionAPI, manager: ProcessManager) {
 
   pi.on("turn_end", async (_event, ctx) => {
     latestContext = ctx;
+  });
+
+  // Clean up auto-hide timers on shutdown
+  pi.on("session_shutdown", () => {
+    for (const timer of autoHideTimers.values()) {
+      clearTimeout(timer);
+    }
+    autoHideTimers.clear();
   });
 
   manager.onEvent((event) => {
@@ -88,5 +98,20 @@ export function setupProcessEndHook(pi: ExtensionAPI, manager: ProcessManager) {
       },
       { triggerTurn: triggerAgentTurn },
     );
+
+    // Schedule auto-hide if enabled
+    const { autoHide } = configLoader.getConfig();
+    if (autoHide.enabled) {
+      // Cancel any existing timer for this process (shouldn't happen, but be safe)
+      const existing = autoHideTimers.get(info.id);
+      if (existing) clearTimeout(existing);
+
+      const timer = setTimeout(() => {
+        autoHideTimers.delete(info.id);
+        manager.clearProcess(info.id);
+      }, autoHide.delayMs);
+
+      autoHideTimers.set(info.id, timer);
+    }
   });
 }

@@ -24,6 +24,12 @@ export interface ProcessesConfig {
     /** Show the status widget below the editor. */
     showStatusWidget?: boolean;
   };
+  autoHide?: {
+    /** Automatically remove processes from the list after they exit. */
+    enabled?: boolean;
+    /** Delay in milliseconds before removing an exited process (default: 3000). */
+    delayMs?: number;
+  };
 }
 
 export interface ResolvedProcessesConfig {
@@ -38,6 +44,10 @@ export interface ResolvedProcessesConfig {
   widget: {
     showStatusWidget: boolean;
   };
+  autoHide: {
+    enabled: boolean;
+    delayMs: number;
+  };
 }
 
 const DEFAULT_CONFIG: ResolvedProcessesConfig = {
@@ -51,6 +61,10 @@ const DEFAULT_CONFIG: ResolvedProcessesConfig = {
   },
   widget: {
     showStatusWidget: true,
+  },
+  autoHide: {
+    enabled: false,
+    delayMs: 3000,
   },
 };
 

@@ -404,6 +404,29 @@ export class ProcessManager {
     return { ok: true, info: this.toProcessInfo(managed) };
   }
 
+  /**
+   * Remove a single finished process by ID. Returns true if removed.
+   * Does nothing if the process is still alive.
+   */
+  clearProcess(id: string): boolean {
+    const managed = this.processes.get(id);
+    if (!managed) return false;
+    if (LIVE_STATUSES.has(managed.status)) return false;
+
+    try {
+      rmSync(managed.stdoutFile, { force: true });
+      rmSync(managed.stderrFile, { force: true });
+      rmSync(managed.combinedFile, { force: true });
+    } catch {
+      // Ignore
+    }
+
+    this.processes.delete(id);
+    this.emit({ type: "processes_changed" });
+    this.stopWatcherIfIdle();
+    return true;
+  }
+
   clearFinished(): number {
     let cleared = 0;
     for (const [id, managed] of this.processes) {

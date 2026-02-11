@@ -87,6 +87,32 @@ export function registerProcessesSettings(
             },
           ],
         },
+        {
+          label: "Auto Hide",
+          items: [
+            {
+              id: "autoHide.enabled",
+              label: "Auto-hide on exit",
+              description:
+                "Automatically remove processes from the list after they exit",
+              currentValue:
+                (tabConfig?.autoHide?.enabled ?? resolved.autoHide.enabled)
+                  ? "on"
+                  : "off",
+              values: ["on", "off"],
+            },
+            {
+              id: "autoHide.delayMs",
+              label: "Auto-hide delay (ms)",
+              description:
+                "Delay in milliseconds before removing an exited process",
+              currentValue: String(
+                tabConfig?.autoHide?.delayMs ?? resolved.autoHide.delayMs,
+              ),
+              values: ["0", "1000", "3000", "5000", "10000"],
+            },
+          ],
+        },
       ];
     },
     onSettingChange: (id, newValue, config) => {
@@ -95,6 +121,11 @@ export function registerProcessesSettings(
       if (id === "widget.showStatusWidget") {
         if (!updated.widget) updated.widget = {};
         updated.widget.showStatusWidget = newValue === "on";
+        return updated;
+      }
+      if (id === "autoHide.enabled") {
+        if (!updated.autoHide) updated.autoHide = {};
+        updated.autoHide.enabled = newValue === "on";
         return updated;
       }
       // Numeric fields.
@@ -117,6 +148,10 @@ export function registerProcessesSettings(
         case "output.maxOutputLines":
           if (!updated.output) updated.output = {};
           updated.output.maxOutputLines = num;
+          break;
+        case "autoHide.delayMs":
+          if (!updated.autoHide) updated.autoHide = {};
+          updated.autoHide.delayMs = num;
           break;
         default:
           return null;
